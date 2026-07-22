@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid theme("colors.rust");
+  outline-offset: 2px;
+}
+
+body {
+  background-color: theme("colors.paper");
+  color: theme("colors.ink");
+}
+
+/* Torn-edge index card, used for retrieved source chunks */
+.torn-top {
+  clip-path: polygon(
+    0% 6px, 4% 0%, 9% 5px, 14% 1px, 19% 6px, 24% 0%, 29% 5px, 34% 1px,
+    39% 6px, 44% 0%, 49% 5px, 54% 1px, 59% 6px, 64% 0%, 69% 5px, 74% 1px,
+    79% 6px, 84% 0%, 89% 5px, 94% 1px, 100% 6px,
+    100% 100%, 0% 100%
+  );
+}
+
+.stamp {
+  transform: rotate(-4deg);
+}
