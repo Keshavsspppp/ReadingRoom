@@ -13,9 +13,16 @@ class UploadResponse(BaseModel):
     message: str
 
 
+class DeleteResponse(BaseModel):
+    doc_id: str
+    chunks_removed: int
+    message: str
+
+
 class SourceChunk(BaseModel):
     text: str
     source: str
+    doc_id: str          # Issue 4: expose doc_id so UI can distinguish same-named files
     chunk_index: int
     score: float
 
@@ -23,6 +30,7 @@ class SourceChunk(BaseModel):
 class QueryRequest(BaseModel):
     question: str
     top_k: Optional[int] = None
+    doc_id: Optional[str] = None   # Issue 4: scope query to a single document
 
 
 class QueryResponse(BaseModel):

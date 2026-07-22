@@ -1,29 +1,41 @@
 "use client";
 
 import { useState } from "react";
-import { askQuestion, QueryResponse } from "@/lib/api";
+import { askQuestion, QueryResponse, DocumentInfo } from "@/lib/api";
 import SourceCard from "./SourceCard";
 
 interface Turn {
   question: string;
   response: QueryResponse;
+  scopedTo?: string;   // filename of the document the question was scoped to
 }
 
-export default function ChatPanel({ hasDocuments }: { hasDocuments: boolean }) {
+interface Props {
+  hasDocuments: boolean;
+  documents: DocumentInfo[];   // Issue 4: used to let user pick scope
+}
+
+export default function ChatPanel({ hasDocuments, documents }: Props) {
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
+  const [scopeDocId, setScopeDocId] = useState<string>("");  // "" = whole corpus
 
   async function handleAsk() {
     if (!question.trim() || loading) return;
     setLoading(true);
     setError(null);
     const q = question;
+    const scope = scopeDocId || undefined;
     setQuestion("");
     try {
-      const response = await askQuestion(q);
-      setTurns((prev) => [...prev, { question: q, response }]);
+      const response = await askQuestion(q, undefined, scope);
+      const scopedDoc = documents.find((d) => d.doc_id === scope);
+      setTurns((prev) => [
+        ...prev,
+        { question: q, response, scopedTo: scopedDoc?.filename },
+      ]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
@@ -40,6 +52,25 @@ export default function ChatPanel({ hasDocuments }: { hasDocuments: boolean }) {
         <h2 className="font-display text-2xl font-semibold text-ink">Ask the archive</h2>
       </div>
 
+      {/* Issue 4: document scope selector */}
+      {documents.length > 1 && (
+        <div className="flex items-center gap-2">
+          <label className="font-mono text-xs text-muted shrink-0">Scope:</label>
+          <select
+            value={scopeDocId}
+            onChange={(e) => setScopeDocId(e.target.value)}
+            className="flex-1 bg-transparent border border-muted/40 rounded-sm px-2 py-1 font-mono text-xs text-ink"
+          >
+            <option value="">All documents</option>
+            {documents.map((doc) => (
+              <option key={doc.doc_id} value={doc.doc_id}>
+                {doc.filename}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div className="flex flex-col gap-8 flex-1 overflow-y-auto pr-1">
         {turns.length === 0 && (
           <p className="text-sm text-muted italic">
@@ -51,7 +82,16 @@ export default function ChatPanel({ hasDocuments }: { hasDocuments: boolean }) {
 
         {turns.map((turn, i) => (
           <div key={i} className="flex flex-col gap-3">
-            <p className="font-display italic text-lg text-forest">"{turn.question}"</p>
+            <div className="flex items-start gap-2">
+              <p className="font-display italic text-lg text-forest flex-1">
+                "{turn.question}"
+              </p>
+              {turn.scopedTo && (
+                <span className="font-mono text-[10px] text-muted border border-muted/40 rounded-sm px-1.5 py-0.5 shrink-0 mt-1">
+                  {turn.scopedTo}
+                </span>
+              )}
+            </div>
             <p className="font-body text-ink/90 leading-relaxed whitespace-pre-wrap">
               {turn.response.answer}
             </p>

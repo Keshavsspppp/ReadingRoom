@@ -1,16 +1,18 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { DocumentInfo, uploadDocument } from "@/lib/api";
+import { DocumentInfo, uploadDocument, deleteDocument } from "@/lib/api";
 
 interface Props {
   documents: DocumentInfo[];
   onUploaded: (doc: DocumentInfo) => void;
+  onDeleted: (docId: string) => void;
 }
 
-export default function UploadPanel({ documents, onUploaded }: Props) {
+export default function UploadPanel({ documents, onUploaded, onDeleted }: Props) {
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -28,6 +30,23 @@ export default function UploadPanel({ documents, onUploaded }: Props) {
       }
     },
     [onUploaded]
+  );
+
+  const handleDelete = useCallback(
+    async (docId: string) => {
+      if (!confirm("Delete this document from the index?")) return;
+      setDeleting(docId);
+      setError(null);
+      try {
+        await deleteDocument(docId);
+        onDeleted(docId);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Delete failed.");
+      } finally {
+        setDeleting(null);
+      }
+    },
+    [onDeleted]
   );
 
   return (
@@ -91,10 +110,23 @@ export default function UploadPanel({ documents, onUploaded }: Props) {
                 key={doc.doc_id}
                 className="flex items-center justify-between border-b border-muted/30 pb-2"
               >
-                <span className="font-body text-sm text-ink truncate pr-2">{doc.filename}</span>
-                <span className="font-mono text-xs text-muted shrink-0">
-                  {doc.num_chunks} chunks
-                </span>
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className="font-body text-sm text-ink truncate">{doc.filename}</span>
+                  <span className="font-mono text-[10px] text-muted">
+                    {doc.num_chunks} chunks · ID: {doc.doc_id}
+                  </span>
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(doc.doc_id);
+                  }}
+                  disabled={deleting === doc.doc_id}
+                  className="ml-2 shrink-0 text-rust hover:text-rust-dark disabled:opacity-40 font-mono text-xs px-2 py-1 border border-rust/40 rounded-sm transition-colors"
+                  title="Delete document"
+                >
+                  {deleting === doc.doc_id ? "…" : "×"}
+                </button>
               </li>
             ))}
           </ul>

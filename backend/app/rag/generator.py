@@ -2,14 +2,17 @@
 Turns retrieved chunks + a question into a grounded answer.
 
 Two backends, both HuggingFace:
-  1. Inference API (huggingface_hub.InferenceClient) if HF_API_TOKEN is
-     set -- better quality instruction-tuned models, needs network.
+  1. HF Inference API (router.huggingface.co) if HF_API_TOKEN is set.
+     Uses the "hf-inference" provider which supports the free tier.
+     Default model: HuggingFaceH4/zephyr-7b-beta (gated but free-tier
+     accessible) — override with GENERATION_MODEL in .env.
+     Note: the legacy InferenceClient().chat_completion() path against
+     api-inference.huggingface.co was decommissioned in late 2025; we
+     now pass provider="hf-inference" explicitly to hit the new router.
   2. A small local flan-t5 pipeline (transformers) as a free, fully
      offline fallback so the project runs with zero API keys.
 
-Swapping which backend is active is just an env var
-(HF_API_TOKEN) -- no code changes needed, which is worth mentioning if
-asked about deployment cost tradeoffs.
+Swapping which backend is active is just an env var (HF_API_TOKEN).
 """
 from functools import lru_cache
 from typing import List
@@ -46,10 +49,24 @@ def _get_local_pipeline():
 
 
 def _generate_via_hf_api(prompt: str) -> str:
+    """
+    Uses the HF Inference API via the new router (router.huggingface.co).
+    The legacy api-inference.huggingface.co endpoint was decommissioned
+    in late 2025; passing provider="hf-inference" routes to the new stack.
+
+    Free-tier note: large 7B+ instruction models (e.g. Mistral-7B) are
+    not reliably available on the free hf-inference tier as of mid-2025.
+    The default GENERATION_MODEL is set to HuggingFaceH4/zephyr-7b-beta
+    which has better free-tier availability, but you can override it with
+    any model your token has access to.
+    """
     from huggingface_hub import InferenceClient
 
-    client = InferenceClient(token=settings.hf_api_token)
-    response = client.chat_completion(
+    client = InferenceClient(
+        provider="hf-inference",
+        api_key=settings.hf_api_token,
+    )
+    response = client.chat.completions.create(
         model=settings.generation_model,
         messages=[{"role": "user", "content": prompt}],
         max_tokens=400,
@@ -75,7 +92,15 @@ def generate_answer(question: str, chunks: List[SourceChunk]) -> str:
     if settings.hf_api_token:
         try:
             return _generate_via_hf_api(prompt)
-        except Exception as e:  # noqa: BLE001 - fall back rather than 500
-            return _generate_locally(prompt) + f"\n\n(Note: hosted model call failed, used local fallback: {e})"
+        except Exception as e:  # noqa: BLE001
+            # Surface the real error rather than silently falling back and
+            # appending a confusing note. If the hosted call fails, raise
+            # so the caller can decide — pipeline.py catches and returns
+            # the local result with a clear "hosted unavailable" message.
+            raise RuntimeError(
+                f"HF Inference API call failed: {e}. "
+                "Check your HF_API_TOKEN and that GENERATION_MODEL is "
+                "available on the free hf-inference tier."
+            ) from e
 
     return _generate_locally(prompt)

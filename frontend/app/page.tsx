@@ -26,11 +26,14 @@ export default function Home() {
           <UploadPanel
             documents={documents}
             onUploaded={(doc) => setDocuments((prev) => [...prev, doc])}
+            onDeleted={(docId) =>
+              setDocuments((prev) => prev.filter((d) => d.doc_id !== docId))
+            }
           />
         </section>
 
         <section className="p-8 flex flex-col">
-          <ChatPanel hasDocuments={documents.length > 0} />
+          <ChatPanel hasDocuments={documents.length > 0} documents={documents} />
         </section>
       </div>
 

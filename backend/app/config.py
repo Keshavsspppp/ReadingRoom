@@ -39,6 +39,13 @@ class Settings(BaseSettings):
     top_k: int = int(os.getenv("TOP_K", 4))
     min_score: float = float(os.getenv("MIN_SCORE", 0.15))  # below this, treat as "no match"
 
+    # Upload limits (issue 3)
+    max_upload_mb: int = int(os.getenv("MAX_UPLOAD_MB", 50))
+
+    # CORS (issue 6) — comma-separated list of allowed origins.
+    # Defaults to localhost only. Set to "*" only in local dev if you need it.
+    allowed_origins: str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
+
     # Storage
     index_path: Path = INDEX_DIR / "faiss.index"
     metadata_path: Path = INDEX_DIR / "metadata.pkl"
